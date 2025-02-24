@@ -12,9 +12,10 @@ cd Assignment2
 ```
 Create a virtual environment, here we use conda:
 ```sh
-# Create a new conda environment and activate it
-conda create -n msa python=3.12
+# Create a new conda environment, activate it and install python
+conda create -n msa
 conda activate msa
+conda install python
 ```
 Ensure that pip is using the most up to date version of setuptools:
 ```sh
