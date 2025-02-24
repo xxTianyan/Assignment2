@@ -26,10 +26,11 @@ pip install -e .
 ```
 
 
-## Main Classes
-1. **Define Nodes:** Create and add nodes with unique IDs and coordinates.
-3. **Define Sections:** Assign cross-sectional properties.
-4. **Define Elements:** Connect nodes using beam elements with assigned material and section.
+## Main Process
+1. **Define Nodes:** Create and add nodes with unique IDs, coordinates and loads. Specify boundary conditions.
+2. **Define Elements:** Connect nodes using beam elements with assigned material and section.
+3. **Assemble Structure:** Construct and analyze the target structure,  build global stiffness and force matrices.
+4. **Solve Results:** Solve for Displacements: Compute nodal displacements. Compute Reactions: Calculate reaction forces.
 
 
 ### Example
