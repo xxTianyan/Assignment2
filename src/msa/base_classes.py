@@ -62,7 +62,7 @@ class Element:
     '''
     Represents a 3D beam element connecting two nodes.
     '''
-    def __init__(self, id, node1, node2, material, section):
+    def __init__(self, id, node1, node2, material, section, vtemp=None):
         '''
         Args:
             id (int): Unique element identifier
@@ -77,6 +77,7 @@ class Element:
         self.L = self.compute_length()
         self.material = material
         self.section = section
+        self.vtemp = vtemp
 
     def compute_length(self):
         '''
@@ -104,7 +105,7 @@ class Element:
         # 3) Expand into 12x12 for 3D beam (translations+rotations)
         x1, y1, z1 = self.node1.coords
         x2, y2, z2 = self.node2.coords
-        gamma = rotation_matrix_3D(x1, y1, z1, x2, y2, z2,)
+        gamma = rotation_matrix_3D(x1, y1, z1, x2, y2, z2, self.vtemp)
         T = transformation_matrix_3D(gamma)
         return T
 
