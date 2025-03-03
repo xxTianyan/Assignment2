@@ -35,5 +35,5 @@ pip install -e .
 
 
 ### Example
-See examples folder for details.
+See examples folder for details. But I failed to finish the computing elastic critical load codes.
 
