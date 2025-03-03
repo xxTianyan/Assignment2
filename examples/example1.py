@@ -22,6 +22,7 @@ rect_section = Section(
         A=200*400,          # Area (mm²)
         Iy=(200*400**3)/12, # Strong axis moment of inertia (mm⁴)
         Iz=(400*200**3)/12, # Weak axis moment of inertia (mm⁴)
+        Ir=0,
         J=1e6               # Torsional constant (simplified)
     )
 struct.add_section(rect_section)

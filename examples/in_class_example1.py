@@ -22,6 +22,7 @@ rect_section = Section(
         A=0.5,   
         Iy=0.5**3/12,
         Iz=0.5/12, 
+        Ir=0.5/(12*0.25),
         J=0.02861      
     )
 struct.add_section(rect_section)
@@ -90,7 +91,4 @@ for node in [node1 , node3]:
     print(f"  Fy = {node.forces[1]:.4e} ")
     print(f"  Fz = {node.forces[2]:.4e} ")
 
-# Force equilibrium check
-total_Fz = node1.forces[2] + node3.forces[2]
-print(f"\nZ-direction Force Balance: {total_Fz:.4e}")
     
