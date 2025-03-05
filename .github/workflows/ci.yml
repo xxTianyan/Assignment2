@@ -26,12 +26,11 @@ jobs:
       run: |
         pip install --upgrade pip setuptools wheel
         pip install -e .
-        pip install pytest pytest-cov
 
     # ------------------------- 4. 运行测试并生成覆盖率 -------------
     - name: Run tests with coverage
       run: |
-        pytest --cov-branch --cov-report=xml
+        pytest --cov --junitxml=junit.xml -o junit_family=legacy
         
 
     # ------------------------- 5. 上传覆盖率到 Codecov -------------
