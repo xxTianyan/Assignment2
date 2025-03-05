@@ -25,7 +25,7 @@ start_point = np.array([0,0,0])
 end_point = np.array([25,50,37])
 
 L = np.sqrt(
-    (start_point[0]-end_point[0])**2 + (start_point[1]-end_point[1])**2 + (start_point[2]-end_point[2]**2)
+    (start_point[0]-end_point[0])**2 + (start_point[1]-end_point[1])**2 + (start_point[2]-end_point[2])**2
     )
 P = 1
 
