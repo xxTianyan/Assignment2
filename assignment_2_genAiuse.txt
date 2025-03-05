@@ -1,0 +1,7 @@
+Assignment 1 GenAI Use Statement
+
+For this assignment, I used the following AI tools to assist with code development:
+
+1. DeepSeek (www.deepseek.com)
+   - Generated unit test cases for core functionality.
+   - Assisted in writing some functions and error analysis.
