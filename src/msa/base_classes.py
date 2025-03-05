@@ -431,7 +431,7 @@ class Structure:
                 node.geo_disp[local_dof] = mode_shape[global_dof]
         return lambda_cr, mode_shape / np.max(np.abs(mode_shape))
     
-    def post_processing(self):
+    def post_processing(self, scale=5):
         """
         Visualize the structure and its deformed configuration in 3D.
         
@@ -457,7 +457,7 @@ class Structure:
                     linestyle='--', markersize=6, color='black')
             
             # Compute local geometric displacements.
-            geo_disp_local = ele.T @ (np.array(ele.node1.geo_disp + ele.node2.geo_disp))*(-10)
+            geo_disp_local = ele.T @ (np.array(ele.node1.geo_disp + ele.node2.geo_disp))*scale
             # print('local geometry displacement')
             # print(geo_disp_local)
             
