@@ -26,6 +26,7 @@ jobs:
       run: |
         pip install --upgrade pip setuptools wheel
         pip install -e .
+        pip install pytest pytest-cov
 
     # ------------------------- 4. 运行测试并生成覆盖率 -------------
     - name: Run tests with coverage
