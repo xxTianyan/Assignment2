@@ -1,40 +1,45 @@
 import numpy as np
 from .functions import * 
 import matplotlib.pyplot as plt
-from scipy.linalg import eigh
+from scipy.linalg import eig
 
 class Node:
-    '''
-    Represents a structural node with spatial coordinates and boundary conditions.
-    '''
+    """
+    Represents a node in the structure with its coordinates, 
+    degrees of freedom (DOFs), loads, displacements, and reaction forces.
+    
+    Attributes:
+        id (int): Unique identifier for the node.
+        coords (tuple): Coordinates (x, y, z) of the node.
+        fixed_dofs (list of bool): Flags for each DOF to indicate if it is fixed (default: all False).
+        loads (list of float): External loads applied at the node (6 DOFs).
+        displacements (list of float): Computed displacements for each DOF.
+        reforces (list of float): Reaction forces at the node.
+        F_local (list of float): Local force vector for internal force calculations.
+        geo_disp (list of float): Geometric displacements (e.g., for buckling analysis).
+    """
     def __init__(self, id, x, y, z):
-        '''
-        Args:
-            id (int): Unique node identifier
-            x (float): X-coordinate in global system
-            y (float): Y-coordinate in global system
-            z (float): Z-coordinate in global system
-        '''
         self.id = id
         self.coords = (x, y, z)
         self.fixed_dofs = [False]*6
         self.loads = [0.0]*6
         self.displacements = [0.0]*6
-        self.forces = [0.0]*6
+        self.reforces = [0.0]*6
+        self.F_local = [0.0]*6
+        self.geo_disp = [0.0]*6
 
 class Material:
-    '''
-    Contains material properties for structural elements.
-    '''
+    """
+    Defines the material properties used in the stiffness calculations.
+    
+    Attributes:
+        id (int): Unique identifier for the material.
+        E (float): Young's modulus.
+        G (float): Shear modulus (default: 0).
+        nu (float): Poisson's ratio (default: 0).
+        density (float): Material density (default: 0.0).
+    """
     def __init__(self, id, E, G=0, nu=0, density=0.0):
-        '''
-        Args:
-            id (int): Unique material identifier
-            E (float): Young's modulus (elastic modulus)
-            G (float): Shear modulus
-            nu (float): Poisson's ratio
-            density (float, optional): Material density. Defaults to 0.0.
-        '''
         self.id = id
         self.E = E
         self.G = G
@@ -42,18 +47,18 @@ class Material:
         self.density = density
 
 class Section:
-    '''
-    Defines cross-sectional properties for structural elements.
-    '''
+    """
+    Contains the cross-sectional properties of the element.
+    
+    Attributes:
+        id (int): Unique identifier for the section.
+        A (float): Cross-sectional area.
+        Iy (float): Moment of inertia about the local y-axis.
+        Iz (float): Moment of inertia about the local z-axis.
+        Ir (float): Warping constant (if applicable).
+        J (float): Torsional constant.
+    """
     def __init__(self, id, A, Iy=0, Iz=0, Ir=0, J=0):
-        '''
-        Args:
-            id (int): Unique section identifier
-            A (float): Cross-sectional area
-            Iy (float): Moment of inertia about local y-axis
-            Iz (float): Moment of inertia about local z-axis
-            J (float): Torsional constant
-        '''
         self.id = id
         self.A = A
         self.Iy = Iy
@@ -62,18 +67,21 @@ class Section:
         self.J = J
 
 class Element:
-    '''
-    Represents a 3D beam element connecting two nodes.
-    '''
+    """
+    Represents a 3D beam or truss element connecting two nodes.
+    Computes element length, local and global stiffness matrices, and transformation matrices.
+    
+    Attributes:
+        id (int): Unique identifier for the element.
+        node1, node2 (Node): The two nodes connected by the element.
+        L (float): Length of the element computed from node coordinates.
+        material (Material): Associated material.
+        section (Section): Associated section.
+        vtemp (optional): Vector to help define the local coordinate system orientation.
+        T (numpy.ndarray): 12x12 transformation matrix from local to global coordinates.
+        Ke_local (numpy.ndarray): 12x12 local stiffness matrix.
+    """
     def __init__(self, id, node1, node2, material, section, vtemp=None):
-        '''
-        Args:
-            id (int): Unique element identifier
-            node1 (Node): First end node
-            node2 (Node): Second end node
-            material (Material): Material properties
-            section (Section): Cross-section properties
-        '''
         self.id = id
         self.node1 = node1
         self.node2 = node2
@@ -81,392 +89,402 @@ class Element:
         self.material = material
         self.section = section
         self.vtemp = vtemp
-        self.T, self.gamma = self.compute_transformation_matrix()
-
+        self.T = self.compute_transformation_matrix()
+        self.Ke_local = self.compute_local_stiffness()
+        
     def compute_length(self):
-        '''
-        Calculate element length from nodal coordinates.
-        Returns:
-            float: Euclidean distance between node1 and node2
-        '''
+        """
+        Compute the length of the element based on node coordinates.
+        """
         x1, y1, z1 = self.node1.coords
         x2, y2, z2 = self.node2.coords
         length = ((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)**0.5
         return length
 
     def compute_local_stiffness(self):
-        """Return 12x12 local stiffness matrix for a 3D beam/truss."""
-        # Example for a 3D beam element
-        # Implementation depends on the formula from your structural analysis references
-        K_local = local_elastic_stiffness_matrix_3D_beam(self.material.E, self.material.nu, self.section.A, 
-                                                         self.L, self.section.Iy, self.section.Iz, self.section.J)
-        return K_local
+        """
+        Compute the 12x12 local stiffness matrix using the material and section properties.
+        Relies on the external function: local_elastic_stiffness_matrix_3D_beam.
+        """
+        ke_local = local_elastic_stiffness_matrix_3D_beam(
+            self.material.E, 
+            self.material.nu, 
+            self.section.A, 
+            self.L, 
+            self.section.Iy, 
+            self.section.Iz, 
+            self.section.J
+        )
+        return ke_local
     
     def compute_local_geometry_stiffness(self):
-        Kg_local = local_geometric_stiffness_matrix_3D_beam(self.L, self.section.A, self.section.Ir, self.node2.loads[0],
-                                                            self.node2.loads[3], self.node1.loads[4], self.node1.loads[5],
-                                                            self.node2.loads[4], self.node2.loads[5])
-        return Kg_local
-
+        """
+        Compute the local geometric stiffness matrix (useful for nonlinear buckling analysis).
+        Relies on the external function: local_geometric_stiffness_matrix_3D_beam.
+        """
+        kg_local = local_geometric_stiffness_matrix_3D_beam(
+            self.L, 
+            self.section.A, 
+            self.section.Ir, 
+            self.node2.F_local[0],
+            self.node2.F_local[3], 
+            self.node1.F_local[4], 
+            self.node1.F_local[5],
+            self.node2.F_local[4], 
+            self.node2.F_local[5]
+        )
+        return kg_local
+        
     def compute_transformation_matrix(self):
-        """Return 12x12 transformation matrix (T) to go from local to global."""
-        # 1) Calculate direction cosines from node1.coords to node2.coords
-        # 2) Build the 3x3 rotation matrix
-        # 3) Expand into 12x12 for 3D beam (translations+rotations)
+        """
+        Compute the 12x12 transformation matrix to convert local stiffness to global coordinates.
+        
+        Steps:
+          1. Calculate direction cosines from node1 to node2.
+          2. Build a 3x3 rotation matrix using the external function rotation_matrix_3D.
+          3. Expand the rotation matrix into a 12x12 transformation matrix using transformation_matrix_3D.
+        """
         x1, y1, z1 = self.node1.coords
         x2, y2, z2 = self.node2.coords
         gamma = rotation_matrix_3D(x1, y1, z1, x2, y2, z2, self.vtemp)
         T = transformation_matrix_3D(gamma)
-        return T, gamma
+        return T
 
-    def compute_global_stiffness(self):
-        """Return the 12x12 element stiffness matrix in global coordinates."""
-        Ke_local = self.compute_local_stiffness()
+    def compute_global_stiffness(self, type='linear'):
+        """
+        Compute the global stiffness matrix for the element by transforming the local stiffness matrix.
+        
+        Args:
+            type (str): 'linear' for the elastic stiffness matrix or another string for geometric stiffness.
+            
+        Returns:
+            numpy.ndarray: 12x12 global stiffness matrix.
+        """
         T = self.T
-        # K_global = T^T * K_local * T
-        return T.T @ Ke_local @ T
+        if type == 'linear':
+            K_local = self.Ke_local
+        else:
+            K_local = self.compute_local_geometry_stiffness()
+        return T.T @ K_local @ T
+        
+    def get_local_displacement(self):
+        """
+        Transform the global displacements of the connected nodes into the local coordinate system.
+        
+        Returns:
+            numpy.ndarray: Local displacement vector (12 elements).
+        """
+        u_global = np.array(self.node1.displacements + self.node2.displacements)
+        u_local = self.T @ u_global
+        return u_local
     
-    def compute_global_geometry_stiffness(self):
-        """Return the 12x12 element stiffness matrix in global coordinates."""
-        Kg_local = self.compute_local_geometry_stiffness()
-        T = self.T
-        # K_global = T^T * K_local * T
-        return T.T @ Kg_local @ T
-
-    def interpolate(self):
-        u_local = self.T @ np.array(self.node1.displacements + self.node2.displacements)
-        x = np.linspace(0, self.L, 10)
-        L = self.L
-        xi = x / L  # 归一化坐标 (0 <= xi <= 1)
-    
-        # 提取节点自由度
-        u_x1, u_y1, u_z1, theta_x1, theta_y1, theta_z1 = u_local[0:6]
-        u_x2, u_y2, u_z2, theta_x2, theta_y2, theta_z2 = u_local[6:12]
-        
-        # --- 轴向位移 u_x (线性插值) ---
-        N1 = 1 - xi
-        N2 = xi
-        u = N1 * u_x1 + N2 * u_x2
-        
-        # --- 横向位移 u_y (三次Hermite插值) ---
-        H1 = 1 - 3*xi**2 + 2*xi**3
-        H2 = L * xi * (1 - xi)**2
-        H3 = 3*xi**2 - 2*xi**3
-        H4 = -L * xi**2 * (1 - xi)
-        v = H1 * u_y1 + H2 * theta_z1 + H3 * u_y2 + H4 * theta_z2
-        
-        # --- 横向位移 u_z (三次Hermite插值，注意符号) ---
-        G1 = 1 - 3*xi**2 + 2*xi**3
-        G2 = -L * xi * (1 - xi)**2  # 注意负号
-        G3 = 3*xi**2 - 2*xi**3
-        G4 = L * xi**2 * (1 - xi)   # 符号与H4相反
-        w = G1 * u_z1 + G2 * theta_y1 + G3 * u_z2 + G4 * theta_y2
-        displacement_local = np.vstack((u, v, w))
-        displacement_global = np.linalg.inv(self.gamma) @ displacement_local
-
-        return displacement_global
-
-    def plot_internal_force(self):
-        reaction = np.array(self.node1.forces + self.node2.forces)
-        load = np.array(self.node1.loads + self.node2.loads)
-        F_local = self.T @ (reaction + load)
-        x = np.array([0, self.L])  # 局部坐标系x轴坐标
-        fig, axs = plt.subplots(3, 2, figsize=(15, 10))
-        fig.suptitle('Member Internal Forces and Moments in Local Coordinates', fontsize=14)
-        
-        N1, Vy1, Vz1 = F_local[0], F_local[1], F_local[2]
-        Tx1, My1, Mz1 = F_local[3], F_local[4], F_local[5]
-
-        N2, Vy2, Vz2 = F_local[6], F_local[7], F_local[8]
-        Tx2, My2, Mz2 = F_local[9], F_local[10], F_local[11]
-
-        # 绘制轴力
-        axs[0,0].plot(x, [N1, N2], 'r-o', linewidth=2)
-        axs[0,0].set_title('Axial Force (N)')
-        axs[0,0].set_xlabel('Position along member')
-        axs[0,0].grid(True)
-        axs[0,0].axhline(0, color='black', linewidth=0.5)
-
-        # 绘制剪力Y方向
-        axs[0,1].plot(x, [Vy1, Vy2], 'b-o', linewidth=2)
-        axs[0,1].set_title('Shear Force Y (Vy)')
-        axs[0,1].set_xlabel('Position along member')
-        axs[0,1].grid(True)
-        axs[0,1].axhline(0, color='black', linewidth=0.5)
-
-        # 绘制剪力Z方向
-        axs[1,0].plot(x, [Vz1, Vz2], 'g-o', linewidth=2)
-        axs[1,0].set_title('Shear Force Z (Vz)')
-        axs[1,0].set_xlabel('Position along member')
-        axs[1,0].grid(True)
-        axs[1,0].axhline(0, color='black', linewidth=0.5)
-
-        # 绘制扭矩
-        axs[1,1].plot(x, [Tx1, Tx2], 'm-o', linewidth=2)
-        axs[1,1].set_title('Torque (Tx)')
-        axs[1,1].set_xlabel('Position along member')
-        axs[1,1].grid(True)
-        axs[1,1].axhline(0, color='black', linewidth=0.5)
-
-        # 绘制弯矩Y方向
-        axs[2,0].plot(x, [My1, My2], 'c-o', linewidth=2)
-        axs[2,0].set_title('Bending Moment Y (My)')
-        axs[2,0].set_xlabel('Position along member')
-        axs[2,0].grid(True)
-        axs[2,0].axhline(0, color='black', linewidth=0.5)
-
-        # 绘制弯矩Z方向
-        axs[2,1].plot(x, [Mz1, Mz2], 'y-o', linewidth=2)
-        axs[2,1].set_title('Bending Moment Z (Mz)')
-        axs[2,1].set_xlabel('Position along member')
-        axs[2,1].grid(True)
-        axs[2,1].axhline(0, color='black', linewidth=0.5)
-
-        plt.tight_layout()
-        plt.savefig('test.png', dpi=300)
+    def assign_local_internal_force(self):
+        """
+        Compute and assign the local internal force vector based on the local stiffness matrix 
+        and local displacements. The forces are distributed to the connected nodes.
+        """
+        u_local = self.get_local_displacement()
+        F_local = self.Ke_local @ u_local
+        self.node1.F_local = F_local[:6]
+        self.node2.F_local = F_local[6:]
 
 
 class Structure:
-    '''
-    Main class representing the structural system.
+    """
+    Represents the entire structure, managing nodes, elements, materials, and sections.
+    Responsible for assembling global matrices, applying boundary conditions, solving the system,
+    and performing post-processing such as visualization and buckling analysis.
+    
     Attributes:
-        nodes (dict): {id: Node} mapping
-        elements (dict): {id: Element} mapping
-        materials (dict): {id: Material} mapping
-        sections (dict): {id: Section} mapping
-        dof_map (dict): Maps (node_id, local_dof) to global DOF indices
-        num_dofs (int): Total number of degrees of freedom
-        K (np.ndarray): Global stiffness matrix
-        F (np.ndarray): Global force vector
-    '''
+        nodes (dict): Maps node IDs to Node objects.
+        elements (dict): Maps element IDs to Element objects.
+        materials (dict): Maps material IDs to Material objects.
+        sections (dict): Maps section IDs to Section objects.
+        dof_map (dict): Maps (node_id, local_dof) to global DOF indices.
+        num_dofs (int): Total number of degrees of freedom in the structure.
+        Ke (numpy.ndarray): Global elastic stiffness matrix.
+        Kg (numpy.ndarray): Global geometric stiffness matrix.
+        Load (numpy.ndarray): Global load vector.
+        u (numpy.ndarray): Global displacement vector.
+        reaction (numpy.ndarray): Reaction forces computed at fixed DOFs.
+        fixed_dofs (list): Global DOF indices that are fixed.
+        free_dofs (list): Global DOF indices that are free.
+    """
     def __init__(self):
         self.nodes = {}
         self.elements = {}
         self.materials = {}
         self.sections = {}
         self.dof_map = {}  # Maps (node_id, local_dof) -> global_dof
-        self.num_dofs = 0  # The number of dofs of the whole structure
+        self.num_dofs = 0  # Total degrees of freedom in the structure
         self.Ke = None
         self.Kg = None
         self.Load = None
         self.u = None
         self.reaction = None
 
+
     def add_node(self, node):
+        """Add a Node object to the structure."""
         self.nodes[node.id] = node
 
     def add_material(self, material):
+        """Add a Material object to the structure."""
         self.materials[material.id] = material
 
     def add_section(self, section):
+        """Add a Section object to the structure."""
         self.sections[section.id] = section
 
     def add_element(self, element):
+        """Add an Element object to the structure."""
         self.elements[element.id] = element
 
     def assign_dof_numbers(self):
         """
-        Assign each node's 6 DOFs a global index. 
-        We do NOT skip fixed DOFs here; we'll handle them later by zeroing out.
+        Assign global DOF numbers to each node's local DOFs.
+        Populates the dof_map and classifies DOFs as fixed or free.
         """
         dof_counter = 0
-
-        # Suppose self.nodes is a dict {node_id: Node}
-        # We'll iterate in ascending node_id order for consistency
-        for node_id, _ in sorted(self.nodes.items()):
-            for local_dof in range(6):  # 0..5 => [u, v, w, rx, ry, rz]
+        # Iterate in ascending order of node_id for consistency.
+        for node_id, node in sorted(self.nodes.items()):
+            for local_dof in range(6):  # Each node has 6 DOFs: [u, v, w, rx, ry, rz]
                 self.dof_map[(node_id, local_dof)] = dof_counter
                 dof_counter += 1
 
-        # Store total DOFs in the model
         self.num_dofs = dof_counter
 
-
-    def assemble_global_stiffness(self):
+    def assemble_global_stiffness(self, type='linear'):
         """
-        Build the global stiffness matrix by looping over elements.
-        For each element, get K_global (12x12 for a 3D beam element),
-        then place it into the big K matrix at the appropriate rows/columns.
+        Assemble the global stiffness matrix by summing contributions from each element.
+        
+        Args:
+            type (str): 'linear' for the elastic stiffness or another value for geometric stiffness.
+            
+        Returns:
+            numpy.ndarray: The assembled global stiffness matrix.
         """
-        # Initialize global stiffness matrix
         K = np.zeros((self.num_dofs, self.num_dofs))
-
-        # Loop over all elements in your model
+        # Loop over each element.
         for ele_id, ele in self.elements.items():
-            # For a 3D beam, each node has 6 DOFs
-            node1_id = ele.node1.id
-            node2_id = ele.node2.id
-
-            # Build a 12-element list of the global DOF indices for this element
+            # Get the global DOF indices for the element (node1 + node2).
             dofs_element = []
-            for local_dof in range(6):  # node1’s 6 DOFs
-                dofs_element.append(self.dof_map[(node1_id, local_dof)])
-            for local_dof in range(6):  # node2’s 6 DOFs
-                dofs_element.append(self.dof_map[(node2_id, local_dof)])
-
-            # Get the 12×12 element stiffness in global coords
-            Ke_global = ele.compute_global_stiffness()
-
-            # "Scatter" Ke_global into the master Kg
+            for local_dof in range(6):  # DOFs for node1
+                dofs_element.append(self.dof_map[(ele.node1.id, local_dof)])
+            for local_dof in range(6):  # DOFs for node2
+                dofs_element.append(self.dof_map[(ele.node2.id, local_dof)])
+            # Get the element stiffness matrix in global coordinates.
+            if type == 'linear':
+                K_ele_global = ele.compute_global_stiffness()
+            else:
+                ele.assign_local_internal_force()
+                K_ele_global = ele.compute_global_stiffness(type='geometry')
+            # Scatter the element stiffness into the global stiffness matrix.
             for i in range(12):
                 for j in range(12):
-                    K[dofs_element[i], dofs_element[j]] += Ke_global[i, j]
-
+                    K[dofs_element[i], dofs_element[j]] += K_ele_global[i, j]
         return K
     
-
-    def assemble_global_geometry_stiffness(self):
-        """
-        Build the global stiffness matrix by looping over elements.
-        For each element, get K_global (12x12 for a 3D beam element),
-        then place it into the big K matrix at the appropriate rows/columns.
-        """
-        # Initialize global stiffness matrix
-        K = np.zeros((self.num_dofs, self.num_dofs))
-
-        # Loop over all elements in your model
-        for ele_id, ele in self.elements.items():
-            # For a 3D beam, each node has 6 DOFs
-            node1_id = ele.node1.id
-            node2_id = ele.node2.id
-
-            # Build a 12-element list of the global DOF indices for this element
-            dofs_element = []
-            for local_dof in range(6):  # node1’s 6 DOFs
-                dofs_element.append(self.dof_map[(node1_id, local_dof)])
-            for local_dof in range(6):  # node2’s 6 DOFs
-                dofs_element.append(self.dof_map[(node2_id, local_dof)])
-
-            # Get the 12×12 element stiffness in global coords
-            Ke_global = ele.compute_global_geometry_stiffness()
-
-            # "Scatter" Ke_global into the master Kg
-            for i in range(12):
-                for j in range(12):
-                    K[dofs_element[i], dofs_element[j]] += Ke_global[i, j]
-
-        return K
-
     def assemble_external_force(self):
         """
-        Build the global force vector (Fg) from external nodal loads.
-        For each node, we add the node's loads to the corresponding
-        global DOFs as defined by self.dof_map.
+        Assemble the global external force vector from nodal loads.
+        
+        Returns:
+            numpy.ndarray: The assembled load vector.
         """
         F = np.zeros(self.num_dofs)
-
-        # Loop over all nodes
         for node_id, node in self.nodes.items():
-            # Each node in 3D beams/frames has 6 DOFs: (u, v, w, rx, ry, rz)
             for local_dof in range(6):
-                # Look up the global DOF index from the dof_map
                 global_dof = self.dof_map[(node_id, local_dof)]
                 F[global_dof] += node.loads[local_dof]
-
         return F
+    
+    def apply_boundary_conditions(self, global_stiffness_matrix):
+        """
+        Apply boundary conditions by modifying the global stiffness matrix and load vector.
+        Rows and columns corresponding to fixed DOFs are zeroed out and then set on the diagonal.
         
-    def apply_boundary_conditions(self):
+        Args:
+            global_stiffness_matrix (numpy.ndarray): The original global stiffness matrix.
+            
+        Returns:
+            tuple: Modified stiffness matrix and load vector.
         """
-        Modify the global stiffness matrix (self.Ke) and the global load vector (self.F)
-        to account for fixed DOFs. This approach:
-        - Zeros out the row and column of the fixed DOF in K,
-        - Sets the diagonal to 1,
-        - Sets the load at that DOF to 0,
-        which enforces zero displacement at that DOF.
-        """
-        # Make copies (or work in-place) depending on your design
-        Ke = self.Ke.copy()
-        Kg = self.Kg.copy()
+        K = global_stiffness_matrix.copy()
         F = self.Load.copy()
-        constrain = []
-        # Loop through all nodes
         for node_id, node in self.nodes.items():
-            # For each local DOF (0..5), check if it's fixed
             for local_dof, is_fixed in enumerate(node.fixed_dofs):
                 if is_fixed:
-                    # Look up the global DOF index from self.dof_map
                     global_dof = self.dof_map[(node_id, local_dof)]
-                    constrain.append(global_dof)
-
-                    # 1) Zero out entire row and column
-                    Ke[global_dof, :] = 0.0
-                    Ke[:, global_dof] = 0.0
-
-                    Kg[global_dof, :] = 0.0
-                    Kg[:, global_dof] = 0.0
-
-                    # 2) Set diagonal to 1
-                    Ke[global_dof, global_dof] = 1.0
-                    Kg[global_dof, global_dof] = 1.0
-
-                    # 3) Set load to 0
+                    # Zero out the row and column.
+                    K[global_dof, :] = 0.0
+                    K[:, global_dof] = 0.0
+                    # Set the diagonal to 1.
+                    K[global_dof, global_dof] = 1.0
+                    # Set the corresponding load to 0.
                     F[global_dof] = 0.0
-
-        return (Ke, F, Kg)
-
-
+        return K, F
+    
     def solve_u(self):
         """
-        Solve the system of equations [K]{u} = {F} after assembling the
-        global stiffness matrix and force vector, and applying boundary conditions.
-        Then store the displacement results in each Node.
+        Solve the system of equations for nodal displacements.
+        Updates the displacements in each node and returns the global displacement vector.
+        
+        Raises:
+            ValueError: If the global stiffness matrix is singular or ill-conditioned.
+            
+        Returns:
+            numpy.ndarray: The computed global displacement vector.
         """
-
-        K, F = self.apply_boundary_conditions()[:2]
-
-        #    Solve the linear system.
-        #    Use a standard solver; for large systems, consider a sparse solver.
+        K, F = self.apply_boundary_conditions(self.Ke)
         try:
             u = np.linalg.solve(K, F)
         except np.linalg.LinAlgError as e:
             raise ValueError("Global stiffness matrix is singular or ill-conditioned. "
-                            "Check boundary conditions.") from e
-
-        #    Store the computed displacements in each node.
+                             "Check boundary conditions.") from e
+        # Store the computed displacements in each node.
         for node_id, node in self.nodes.items():
             for local_dof in range(6):
                 global_dof = self.dof_map[(node_id, local_dof)]
                 node.displacements[local_dof] = u[global_dof]
-
         return u
     
     def compute_reaction_force(self):
-        '''
-        After solving for the displacement vector self.u,
-        compute the nodal reaction force at every DOF by F = K @ u.
-        Then store these forces back into each Node object, force attributes. 
-        '''
-        # 1) Multiply K by u to get total nodal forces
-        F_total = self.Ke @ self.u  # shape = (num_dofs,)
+        """
+        Compute the reaction forces at each node after solving for displacements.
+        The reaction is calculated as the difference between total nodal force (K*u) and the applied load.
+        Stores the reaction forces in each node.
+        
+        Returns:
+            numpy.ndarray: Reaction forces at all DOFs.
+        """
+        F_total = self.Ke @ self.u  # Total nodal forces.
         reactions = F_total - self.Load
-
-        # 2) Store these forces in each Node
         for node_id, node in self.nodes.items():
             for local_dof in range(6):
                 global_dof = self.dof_map[(node_id, local_dof)]
-                node.forces[local_dof] = reactions[global_dof]
+                node.reforces[local_dof] = reactions[global_dof]
         return reactions
-
-    def analyze(self):
-        '''
-        Prepare and solve the structure.
-        '''
+    
+    def linear_analyze(self):
+        """
+        High-level function to perform linear structural analysis.
+        
+        Steps:
+          1. Assign DOF numbers.
+          2. Assemble global stiffness matrix (Ke) and load vector.
+          3. Solve for nodal displacements.
+          4. Assemble global geometric stiffness matrix (Kg) for potential buckling analysis.
+          5. Compute reaction forces.
+        """
         self.assign_dof_numbers()
         self.Ke = self.assemble_global_stiffness()
-        self.Kg = self.assemble_global_geometry_stiffness()
         self.Load = self.assemble_external_force()
         self.u = self.solve_u()
+        self.Kg = self.assemble_global_stiffness(type='geometry')
         self.reaction = self.compute_reaction_force()
-
-    def plot(self):
+    
+    def compute_elastic_critical_load(self):
+        """
+        Compute the elastic critical load (buckling load) via eigenvalue analysis.
+        The generalized eigenvalue problem is solved with the global elastic stiffness (Ke)
+        and geometric stiffness (Kg) matrices. The smallest positive eigenvalue is selected
+        as the critical load factor.
+        
+        Returns:
+            tuple: (lambda_cr, normalized buckling mode shape)
+        """
+        Kg_bc, _ = self.apply_boundary_conditions(self.Kg)
+        Ke_bc, _ = self.apply_boundary_conditions(self.Ke)
+        eigenvalues, eigenvectors = eig(Ke_bc, -Kg_bc)
+        eigenvalues_real = np.real(eigenvalues)
+        # Sort eigenvalues and corresponding eigenvectors.
+        idx_sorted = np.argsort(eigenvalues_real)
+        sorted_evals = eigenvalues_real[idx_sorted]
+        sorted_evecs = eigenvectors[:, idx_sorted]
+        # Filter out near-zero or negative eigenvalues.
+        lambda_cr_candidates = [val for val in sorted_evals if val > 1e-8]
+        if len(lambda_cr_candidates) == 0:
+            print("No positive eigenvalues found! Buckling might not occur in the expected range.")
+            return 0
+        else:
+            lambda_cr = lambda_cr_candidates[0]
+            mode_shape = np.real(sorted_evecs[:, np.where(sorted_evals == lambda_cr)[0][0]])
+        geo_disp = mode_shape / np.max(np.abs(mode_shape))
+        # Store normalized displacements (buckling mode shape) in each node.
         for node_id, node in self.nodes.items():
-            pass
-
-
-    def solve_elastic_critical_load(self):
-        Ke, _, Kg= self.apply_boundary_conditions()
-
-        eigenvalues, eigenvectors = eigh(Ke, -Kg) 
-        lambda_cr = eigenvalues[-1]  # 最小的正特征值
-
-        return lambda_cr
+            for local_dof in range(6):
+                global_dof = self.dof_map[(node_id, local_dof)]
+                node.geo_disp[local_dof] = geo_disp[global_dof]
+        return lambda_cr, mode_shape / np.max(np.abs(mode_shape))
+    
+    def post_processing(self):
+        """
+        Visualize the structure and its deformed configuration in 3D.
+        
+        For each element:
+          - Plots the original (undeformed) line between node coordinates.
+          - Interpolates displacements along the element using linear interpolation (axial) 
+            and cubic Hermite interpolation (transverse) for smooth curves.
+          - Transforms local displacements into global coordinates.
+          - Plots the deformed shape.
+        
+        The final plot is saved as 'test1.png'.
+        """
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        for _, ele in self.elements.items():
+            # print(f'---------- element {_}')
+            start = ele.node1.coords
+            end = ele.node2.coords
+            # Plot the original undeformed element.
+            ax.plot([start[0], end[0]], 
+                    [start[1], end[1]], 
+                    [start[2], end[2]],  
+                    linestyle='--', markersize=6, color='black')
+            
+            # Compute local geometric displacements.
+            geo_disp_local = ele.T @ (np.array(ele.node1.geo_disp + ele.node2.geo_disp))*5
+            # print('local geometry displacement')
+            # print(geo_disp_local)
+            
+            L = ele.L
+            num_points = 20
+            x = np.linspace(0, L, num_points)  # Interpolating points along the element.
+            xi = x / L  # Normalized coordinates (0 <= xi <= 1)
+            # Extract local displacements and rotations from the geometric displacement vector.
+            u_x1, u_y1, u_z1, theta_x1, theta_y1, theta_z1 = geo_disp_local[0:6]
+            u_x2, u_y2, u_z2, theta_x2, theta_y2, theta_z2 = geo_disp_local[6:12]
+            
+            # Axial displacement (linear interpolation).
+            N1 = 1 - xi
+            N2 = xi
+            u = N1 * u_x1 + N2 * u_x2
+            # print('u:',u)
+            # Transverse displacement u_y (cubic Hermite interpolation).
+            H1 = 1 - 3*xi**2 + 2*xi**3
+            H2 = L * xi * (1 - xi)**2
+            H3 = 3*xi**2 - 2*xi**3
+            H4 = L * xi * (xi**2 - xi)
+            v = H1 * u_y1 + H2 * theta_z1 + H3 * u_y2 + H4 * theta_z2
+            # print('v:',v)
+            # Transverse displacement u_z (cubic Hermite interpolation with scaling).
+            G1 = 1 - 3*xi**2 + 2*xi**3
+            G2 = L * xi * (1 - xi)**2
+            G3 = 3*xi**2 - 2*xi**3
+            G4 = L * xi * (xi**2 - xi)
+            w = (G1 * u_z1 + G2 * theta_y1 + G3 * u_z2 + G4 * theta_y2) 
+            # print('w:',w)
+            # Stack the local displacement components.
+            local_dis = np.vstack((u, v, w))
+            # Transform local displacements to global coordinates.
+            global_dis = np.linalg.inv(ele.T[:3, :3]) @ local_dis
+            # print(global_dis)
+            # Generate global coordinates along the original element line.
+            global_coord = np.linspace(np.array(start), np.array(end), num_points).T
+            deform_global_coord = global_coord + global_dis
+            
+            # Plot the deformed shape.
+            ax.plot(deform_global_coord[0], deform_global_coord[1], deform_global_coord[2], color='darkred')
+            
+        plt.savefig('deformed_shape.png')
