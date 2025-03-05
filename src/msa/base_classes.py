@@ -487,4 +487,4 @@ class Structure:
             # Plot the deformed shape.
             ax.plot(deform_global_coord[0], deform_global_coord[1], deform_global_coord[2], color='darkred')
             
-        plt.savefig('deformed_shape.png')
+        plt.savefig('deformed_shape.png', dpi=300)
