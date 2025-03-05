@@ -186,7 +186,11 @@ class Element:
         u_local = self.get_local_displacement()
         F_local = self.Ke_local @ u_local
         self.node1.F_local = F_local[:6]
+        # print(f'for ----------------{self.node1.id}------------- the assigned local force is:')
+        # print(self.node1.F_local)
         self.node2.F_local = F_local[6:]
+        # print(f'for ----------------{self.node2.id}------------- the assigned local force is:')
+        # print(self.node2.F_local)
 
 
 class Structure:
@@ -397,25 +401,34 @@ class Structure:
         Kg_bc, _ = self.apply_boundary_conditions(self.Kg)
         Ke_bc, _ = self.apply_boundary_conditions(self.Ke)
         eigenvalues, eigenvectors = eig(Ke_bc, -Kg_bc)
-        eigenvalues_real = np.real(eigenvalues)
-        # Sort eigenvalues and corresponding eigenvectors.
-        idx_sorted = np.argsort(eigenvalues_real)
-        sorted_evals = eigenvalues_real[idx_sorted]
-        sorted_evecs = eigenvectors[:, idx_sorted]
-        # Filter out near-zero or negative eigenvalues.
-        lambda_cr_candidates = [val for val in sorted_evals if val > 1e-8]
-        if len(lambda_cr_candidates) == 0:
-            print("No positive eigenvalues found! Buckling might not occur in the expected range.")
-            return 0
-        else:
-            lambda_cr = lambda_cr_candidates[0]
-            mode_shape = np.real(sorted_evecs[:, np.where(sorted_evals == lambda_cr)[0][0]])
-        geo_disp = mode_shape / np.max(np.abs(mode_shape))
+        # eigenvalues_real = np.real(eigenvalues)
+        # # Sort eigenvalues and corresponding eigenvectors.
+        # idx_sorted = np.argsort(eigenvalues_real)
+        # sorted_evals = eigenvalues_real[idx_sorted]
+        # sorted_evecs = eigenvectors[:, idx_sorted]
+        # # Filter out near-zero or negative eigenvalues.
+        # lambda_cr_candidates = [val for val in sorted_evals if val > 1e-8]
+        # if len(lambda_cr_candidates) == 0:
+        #     print("No positive eigenvalues found! Buckling might not occur in the expected range.")
+        #     return 0
+        # else:
+        #     lambda_cr = lambda_cr_candidates[0]
+        #     mode_shape = np.real(sorted_evecs[:, np.where(sorted_evals == lambda_cr)[0][0]])
+        # geo_disp = mode_shape / np.max(np.abs(mode_shape))
+        real_pos_mask = np.isreal(eigenvalues) & (eigenvalues > 0)
+        filtered_eigvals = np.real(eigenvalues[real_pos_mask])
+        filtered_eigvecs = eigenvectors[:,real_pos_mask]
+
+        sorted_inds = np.argsort(filtered_eigvals)
+        filtered_eigvals = filtered_eigvals[sorted_inds]
+        lambda_cr = filtered_eigvals[0]
+        filtered_eigvecs = filtered_eigvecs[:,sorted_inds]
+        mode_shape = filtered_eigvecs[:,0]
         # Store normalized displacements (buckling mode shape) in each node.
         for node_id, node in self.nodes.items():
             for local_dof in range(6):
                 global_dof = self.dof_map[(node_id, local_dof)]
-                node.geo_disp[local_dof] = geo_disp[global_dof]
+                node.geo_disp[local_dof] = mode_shape[global_dof]
         return lambda_cr, mode_shape / np.max(np.abs(mode_shape))
     
     def post_processing(self):
@@ -444,7 +457,7 @@ class Structure:
                     linestyle='--', markersize=6, color='black')
             
             # Compute local geometric displacements.
-            geo_disp_local = ele.T @ (np.array(ele.node1.geo_disp + ele.node2.geo_disp))*5
+            geo_disp_local = ele.T @ (np.array(ele.node1.geo_disp + ele.node2.geo_disp))*(-10)
             # print('local geometry displacement')
             # print(geo_disp_local)
             
@@ -466,14 +479,14 @@ class Structure:
             H2 = L * xi * (1 - xi)**2
             H3 = 3*xi**2 - 2*xi**3
             H4 = L * xi * (xi**2 - xi)
-            v = H1 * u_y1 + H2 * theta_z1 + H3 * u_y2 + H4 * theta_z2
+            v = (H1 * u_y1 + H2 * theta_z1 + H3 * u_y2 + H4 * theta_z2)
             # print('v:',v)
             # Transverse displacement u_z (cubic Hermite interpolation with scaling).
             G1 = 1 - 3*xi**2 + 2*xi**3
             G2 = L * xi * (1 - xi)**2
             G3 = 3*xi**2 - 2*xi**3
             G4 = L * xi * (xi**2 - xi)
-            w = (G1 * u_z1 + G2 * theta_y1 + G3 * u_z2 + G4 * theta_y2) 
+            w = (G1 * u_z1 + G2 * theta_y1 + G3 * u_z2 + G4 * theta_y2)
             # print('w:',w)
             # Stack the local displacement components.
             local_dis = np.vstack((u, v, w))
