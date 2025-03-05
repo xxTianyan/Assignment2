@@ -4,7 +4,7 @@
 ![OS](https://img.shields.io/badge/os-ubuntu%20%7C%20macos%20%7C%20windows-blue)
 
 [![codecov](https://codecov.io/gh/xxTianyan/ME700/branch/main/graph/badge.svg)](https://codecov.io/gh/xxTianyan/ME700)
-![Tests](https://github.com/xxTianyan/ME700/actions/workflows/ci.yml/badge.svg)
+![Tests](https://github.com/xxTianyan/Assignment2/actions/workflows/ci.yml/badge.svg)
 
 ## Overview
 This Python implementation applies the **Direct Stiffness Method** to analyze **3D beam structures**. It models nodes, materials, sections, and elements, computes local and global stiffness matrices, applies boundary conditions, and solves for displacements and reaction forces.
