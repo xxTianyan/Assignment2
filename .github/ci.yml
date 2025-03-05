@@ -30,12 +30,12 @@ jobs:
     # ------------------------- 4. 运行测试并生成覆盖率 -------------
     - name: Run tests with coverage
       run: |
-        pytest --cov --junitxml=junit.xml -o junit_family=legacy
+        pytest --cov-branch --cov-report=xml
         
 
     # ------------------------- 5. 上传覆盖率到 Codecov -------------
-    - name: Upload test results to Codecov
-      if: ${{ !cancelled() }}
-      uses: codecov/test-results-action@v1
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
+    - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: xxTianyan/Assignment2
