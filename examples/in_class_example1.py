@@ -68,7 +68,7 @@ struct.add_element(beam_element2)
 
 # Step 6: Perform analysis
 print("Starting analysis...")
-struct.analyze()
+struct.linear_analyze()
 print("Analysis completed!")
     
 # Step 7: Verify results
@@ -87,8 +87,8 @@ for node in [node1, node2, node3]:
 print("\n------------ Reaction Force Results-----------------")
 for node in [node1 , node3]:
     print(f"Node {node.id}:")
-    print(f"  Fx = {node.forces[0]:.4e} ")
-    print(f"  Fy = {node.forces[1]:.4e} ")
-    print(f"  Fz = {node.forces[2]:.4e} ")
+    print(f"  Fx = {node.reforces[0]:.4e} ")
+    print(f"  Fy = {node.reforces[1]:.4e} ")
+    print(f"  Fz = {node.reforces[2]:.4e} ")
 
     
