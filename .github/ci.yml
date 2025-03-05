@@ -1,0 +1,41 @@
+name: CI Tests and Coverage
+
+on: # 触发条件
+  push:
+    branches: [ "main", "master" ]  
+  pull_request: 
+    branches: [ "main", "master" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest # 使用最新 Ubuntu 系统
+    
+    steps:
+    # ------------------------- 1. 检出代码 -------------------------
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # ------------------------- 2. 设置 Python ----------------------
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    # ------------------------- 3. 安装依赖 -------------------------
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip setuptools wheel
+        pip install e .
+
+    # ------------------------- 4. 运行测试并生成覆盖率 -------------
+    - name: Run tests with coverage
+      run: |
+        pytest --cov --junitxml=junit.xml -o junit_family=legacy
+        
+
+    # ------------------------- 5. 上传覆盖率到 Codecov -------------
+    - name: Upload test results to Codecov
+      if: ${{ !cancelled() }}
+      uses: codecov/test-results-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
